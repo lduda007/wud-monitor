@@ -8,7 +8,11 @@
           "host": "Host",
           "port": "Port",
           "instance_name": "Instance name",
-          "poll_interval": "Poll interval (minutes)"
+          "poll_interval": "Poll interval (minutes)",
+          "triggers_excluded": "Triggers excluded"
+        },
+        "data_description": {
+          "triggers_excluded": "Trigger identifiers (e.g. docker.local) for which no per-container button will be created."
         }
       }
     },
@@ -27,7 +31,11 @@
           "host": "Host",
           "port": "Port",
           "instance_name": "Instance name",
-          "poll_interval": "Poll interval (minutes)"
+          "poll_interval": "Poll interval (minutes)",
+          "triggers_excluded": "Triggers excluded"
+        },
+        "data_description": {
+          "triggers_excluded": "Trigger identifiers (e.g. docker.local) for which no per-container button will be created."
         }
       }
     },

@@ -10,7 +10,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_INSTANCE_NAME, CONTROLLER_DEVICE_SUFFIX, DOMAIN
+from .const import (
+    CONF_INSTANCE_NAME,
+    CONF_TRIGGERS_EXCLUDED,
+    CONTROLLER_DEVICE_SUFFIX,
+    DOMAIN,
+)
 from .coordinator import WUDCoordinator
 from .sensor import (
     _build_container_device,
@@ -29,6 +34,7 @@ async def async_setup_entry(
     """Set up WUD Monitor buttons from a config entry."""
     coordinator: WUDCoordinator = hass.data[DOMAIN][entry.entry_id]
     instance_name = entry.data[CONF_INSTANCE_NAME]
+    excluded_triggers: set[str] = set(entry.data.get(CONF_TRIGGERS_EXCLUDED) or [])
 
     entities: list[ButtonEntity] = []
 
@@ -43,6 +49,23 @@ async def async_setup_entry(
 
         # Per-container scan button
         entities.append(WUDContainerScanButton(coordinator, entry, instance_name, container))
+
+        # One button per available trigger, unless the trigger is excluded
+        for trigger_id in coordinator.available_triggers_for(container):
+            if trigger_id in excluded_triggers:
+                continue
+            if "." not in trigger_id:
+                _LOGGER.warning(
+                    "Skipping trigger '%s' for container '%s': expected '{type}.{name}' format",
+                    trigger_id,
+                    container.get("name"),
+                )
+                continue
+            entities.append(
+                WUDContainerTriggerButton(
+                    coordinator, entry, instance_name, container, trigger_id
+                )
+            )
 
         # One scan button per compose project, but only if the project has
         # more than one container — otherwise it is identical to the container scan button
@@ -166,3 +189,68 @@ class WUDContainerScanButton(CoordinatorEntity, ButtonEntity):
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("WUD scan failed for container '%s'", self._container_name)
+
+
+class WUDContainerTriggerButton(CoordinatorEntity, ButtonEntity):
+    """Button that runs a specific WUD trigger on a single container."""
+
+    def __init__(
+        self,
+        coordinator: WUDCoordinator,
+        entry: ConfigEntry,
+        instance_name: str,
+        container: dict,
+        trigger_id: str,
+    ) -> None:
+        """Initialize the container trigger button.
+
+        ``trigger_id`` is a WUD trigger identifier of the form ``{type}.{name}``.
+        """
+        super().__init__(coordinator)
+        self._entry = entry
+        self._container_name = container["name"]
+        self._container_watcher = container.get("watcher", "docker")
+        self._container_id = container["id"]
+        self._trigger_id = trigger_id
+        self._trigger_type, self._trigger_name = trigger_id.split(".", 1)
+
+        self._attr_name = f"{container['name']} Trigger {trigger_id}"
+        self._attr_unique_id = (
+            f"wud_{entry.entry_id}_{self._container_watcher}_{self._container_name}"
+            f"_trigger_{trigger_id}"
+        )
+        self._attr_icon = "mdi:play-circle-outline"
+        self._attr_device_info = _build_container_device(
+            entry.entry_id, instance_name, container
+        )
+
+    def _get_current_container_id(self) -> str:
+        """
+        Look up the current container ID from coordinator data.
+        Container IDs change on redeploy so we always fetch the latest.
+        """
+        for c in self.coordinator.data or []:
+            if c.get("name") == self._container_name and c.get("watcher") == self._container_watcher:
+                return c["id"]
+        # Fall back to the ID stored at setup time
+        return self._container_id
+
+    async def async_press(self) -> None:
+        """Run this trigger on the container via the WUD run-trigger API."""
+        container_id = self._get_current_container_id()
+        success = await self.coordinator.async_run_container_trigger(
+            container_id, self._trigger_type, self._trigger_name
+        )
+        if success:
+            _LOGGER.debug(
+                "WUD trigger '%s' run for container '%s'",
+                self._trigger_id,
+                self._container_name,
+            )
+            await self.coordinator.async_request_refresh()
+        else:
+            _LOGGER.error(
+                "WUD trigger '%s' failed for container '%s'",
+                self._trigger_id,
+                self._container_name,
+            )

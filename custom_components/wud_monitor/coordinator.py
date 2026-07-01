@@ -8,7 +8,12 @@ import aiohttp
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import API_CONTAINER_TRIGGERS, API_CONTAINERS, DOMAIN
+from .const import (
+    API_CONTAINER_RUN_TRIGGER,
+    API_CONTAINER_TRIGGERS,
+    API_CONTAINERS,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -94,6 +99,45 @@ class WUDCoordinator(DataUpdateCoordinator):
         except aiohttp.ClientError as err:
             _LOGGER.warning("Failed to fetch triggers for container %s: %s", container_id, err)
             return None
+
+    def available_triggers_for(self, container: dict) -> list[str]:
+        """Return the normalized list of triggers available for a container.
+
+        Prefer the container's own ``triggerInclude`` when set (a comma-separated
+        string in the WUD payload); otherwise fall back to the triggers fetched
+        from the WUD triggers API and cached (keyed by the live container id).
+        Trigger identifiers are of the form ``{type}.{name}`` (e.g. ``docker.local``).
+        """
+        raw = container.get("triggerInclude") or self.container_triggers.get(
+            container.get("id")
+        )
+        if not raw:
+            return []
+        if isinstance(raw, str):
+            return [t.strip() for t in raw.split(",") if t.strip()]
+        return [str(t) for t in raw if t]
+
+    async def async_run_container_trigger(
+        self, container_id: str, trigger_type: str, trigger_name: str
+    ) -> bool:
+        """Run a specific trigger on a container.
+
+        Calls POST /api/containers/{id}/triggers/{triggerType}/{triggerName}.
+        """
+        url = f"{self._base_url}{API_CONTAINER_RUN_TRIGGER.format(container_id=container_id, trigger_type=trigger_type, trigger_name=trigger_name)}"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, timeout=aiohttp.ClientTimeout(total=15)) as response:
+                    return response.status in (200, 202, 204)
+        except aiohttp.ClientError as err:
+            _LOGGER.error(
+                "Failed to run trigger %s.%s for container %s: %s",
+                trigger_type,
+                trigger_name,
+                container_id,
+                err,
+            )
+            return False
 
     async def async_trigger_scan_all(self) -> bool:
         """Trigger a scan of all containers via POST /api/containers/watch."""

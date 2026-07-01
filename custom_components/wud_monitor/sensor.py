@@ -251,14 +251,10 @@ class WUDContainerSensor(CoordinatorEntity, SensorEntity):
     def _get_available_triggers(self, container: dict):
         """Return the triggers available for this container.
 
-        Prefer the container's own triggerInclude when it is set; otherwise fall
-        back to the triggers fetched from the WUD triggers API and cached by the
-        coordinator (keyed by the live container id).
+        Delegates to the coordinator, which normalizes the container's
+        ``triggerInclude`` and the cached triggers API result into a list.
         """
-        trigger_include = container.get("triggerInclude")
-        if trigger_include:
-            return trigger_include
-        return self.coordinator.container_triggers.get(container.get("id"))
+        return self.coordinator.available_triggers_for(container)
 
     @property
     def native_value(self) -> str:

@@ -6,15 +6,22 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers.selector import (
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 
 from .const import (
     CONF_HOST,
     CONF_INSTANCE_NAME,
     CONF_POLL_INTERVAL,
     CONF_PORT,
+    CONF_TRIGGERS_EXCLUDED,
     DEFAULT_INSTANCE_NAME,
     DEFAULT_POLL_INTERVAL,
     DEFAULT_PORT,
+    DEFAULT_TRIGGERS_EXCLUDED,
     DOMAIN,
 )
 from .coordinator import WUDCoordinator
@@ -22,8 +29,13 @@ from .coordinator import WUDCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 
-def _build_schema(defaults: dict) -> vol.Schema:
-    """Build the configuration schema with optional defaults pre-filled."""
+def _build_schema(defaults: dict, trigger_options: list[str] | None = None) -> vol.Schema:
+    """Build the configuration schema with optional defaults pre-filled.
+
+    ``trigger_options`` are the trigger identifiers discovered across all
+    monitored containers; they populate the "triggers excluded" selector so the
+    user can pick from known triggers (custom values are also allowed).
+    """
     return vol.Schema(
         {
             vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "")): str,
@@ -36,8 +48,29 @@ def _build_schema(defaults: dict) -> vol.Schema:
             vol.Required(
                 CONF_POLL_INTERVAL, default=defaults.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
             ): vol.All(int, vol.Range(min=1, max=1440)),
+            vol.Optional(
+                CONF_TRIGGERS_EXCLUDED,
+                default=defaults.get(CONF_TRIGGERS_EXCLUDED, DEFAULT_TRIGGERS_EXCLUDED),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=trigger_options or [],
+                    multiple=True,
+                    custom_value=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
         }
     )
+
+
+def _collect_trigger_options(coordinator: WUDCoordinator | None) -> list[str]:
+    """Return the sorted set of trigger identifiers across all containers."""
+    if coordinator is None:
+        return []
+    seen: set[str] = set()
+    for container in coordinator.data or []:
+        seen.update(coordinator.available_triggers_for(container))
+    return sorted(seen)
 
 
 async def _test_connection(host: str, port: int) -> bool:
@@ -107,8 +140,11 @@ class WUDMonitorOptionsFlow(config_entries.OptionsFlow):
                 )
                 return self.async_create_entry(title="", data={})
 
+        coordinator = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id)
+        trigger_options = _collect_trigger_options(coordinator)
+
         return self.async_show_form(
             step_id="init",
-            data_schema=_build_schema(self.config_entry.data),
+            data_schema=_build_schema(self.config_entry.data, trigger_options),
             errors=errors,
         )
