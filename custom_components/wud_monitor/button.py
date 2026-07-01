@@ -287,16 +287,17 @@ class WUDContainerTriggerButton(CoordinatorEntity, ButtonEntity):
                 self._trigger_id,
                 self._container_name,
             )
-
-            # WUD needs a moment to process the trigger, so refresh state after
-            # a short delay rather than immediately.
-            async def _refresh(_now) -> None:
-                await self.coordinator.async_request_refresh()
-
-            async_call_later(self.hass, TRIGGER_REFRESH_DELAY, _refresh)
         else:
-            _LOGGER.error(
-                "WUD trigger '%s' failed for container '%s'",
+            _LOGGER.warning(
+                "WUD trigger '%s' for container '%s' did not confirm success; "
+                "refreshing state anyway in case it is still running",
                 self._trigger_id,
                 self._container_name,
             )
+
+        # WUD needs a moment to process the trigger (and it may still be running
+        # even if the HTTP call timed out), so refresh state after a short delay.
+        async def _refresh(_now) -> None:
+            await self.coordinator.async_request_refresh()
+
+        async_call_later(self.hass, TRIGGER_REFRESH_DELAY, _refresh)

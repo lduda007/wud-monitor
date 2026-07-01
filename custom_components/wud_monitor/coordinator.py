@@ -13,6 +13,7 @@ from .const import (
     API_CONTAINER_TRIGGERS,
     API_CONTAINERS,
     DOMAIN,
+    RUN_TRIGGER_TIMEOUT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ class WUDCoordinator(DataUpdateCoordinator):
                 # Store poll time only on success
                 self.last_poll_time = datetime.now(timezone.utc)
                 return result
-        except aiohttp.ClientError as err:
+        except (TimeoutError, aiohttp.ClientError) as err:
             raise UpdateFailed(f"Error communicating with WUD at {self._base_url}: {err}") from err
 
     async def _async_fetch_all_triggers(
@@ -96,7 +97,7 @@ class WUDCoordinator(DataUpdateCoordinator):
                 data = await response.json()
                 triggers = data if isinstance(data, list) else data.get("items", [])
                 return [t.get("id") or t.get("name") for t in triggers if isinstance(t, dict)]
-        except aiohttp.ClientError as err:
+        except (TimeoutError, aiohttp.ClientError) as err:
             _LOGGER.warning("Failed to fetch triggers for container %s: %s", container_id, err)
             return None
 
@@ -127,11 +128,15 @@ class WUDCoordinator(DataUpdateCoordinator):
         url = f"{self._base_url}{API_CONTAINER_RUN_TRIGGER.format(container_id=container_id, trigger_type=trigger_type, trigger_name=trigger_name)}"
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(url, timeout=aiohttp.ClientTimeout(total=15)) as response:
+                async with session.post(
+                    url, timeout=aiohttp.ClientTimeout(total=RUN_TRIGGER_TIMEOUT)
+                ) as response:
                     return response.status in (200, 202, 204)
-        except aiohttp.ClientError as err:
-            _LOGGER.error(
-                "Failed to run trigger %s.%s for container %s: %s",
+        except (TimeoutError, aiohttp.ClientError) as err:
+            # A timeout usually means the trigger is still running on the WUD
+            # side rather than that it failed, so log at warning level.
+            _LOGGER.warning(
+                "Trigger %s.%s for container %s did not complete cleanly: %s",
                 trigger_type,
                 trigger_name,
                 container_id,
@@ -147,7 +152,7 @@ class WUDCoordinator(DataUpdateCoordinator):
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, timeout=aiohttp.ClientTimeout(total=15)) as response:
                     return response.status in (200, 202, 204)
-        except aiohttp.ClientError as err:
+        except (TimeoutError, aiohttp.ClientError) as err:
             _LOGGER.error("Failed to trigger WUD scan all: %s", err)
             return False
 
@@ -159,6 +164,6 @@ class WUDCoordinator(DataUpdateCoordinator):
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, timeout=aiohttp.ClientTimeout(total=15)) as response:
                     return response.status in (200, 202, 204)
-        except aiohttp.ClientError as err:
+        except (TimeoutError, aiohttp.ClientError) as err:
             _LOGGER.error("Failed to trigger WUD scan for container %s: %s", container_id, err)
             return False
