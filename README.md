@@ -117,6 +117,8 @@ One device per Docker Compose project. Linked to the Controller device via `via_
 | `compose_project` | Docker Compose project name |
 | `status` | Container runtime status (e.g. `running`) |
 | `watcher` | WUD watcher name (e.g. `docker`) |
+| `display_icon` | Icon for the container as reported by WUD (`displayIcon`) |
+| `available_triggers` | Triggers configured for the container — the container's `triggerInclude` when set, otherwise the triggers fetched from `GET /api/containers/{id}/triggers` |
 
 ---
 

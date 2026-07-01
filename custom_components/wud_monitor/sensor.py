@@ -248,6 +248,18 @@ class WUDContainerSensor(CoordinatorEntity, SensorEntity):
                 return c
         return None
 
+    def _get_available_triggers(self, container: dict):
+        """Return the triggers available for this container.
+
+        Prefer the container's own triggerInclude when it is set; otherwise fall
+        back to the triggers fetched from the WUD triggers API and cached by the
+        coordinator (keyed by the live container id).
+        """
+        trigger_include = container.get("triggerInclude")
+        if trigger_include:
+            return trigger_include
+        return self.coordinator.container_triggers.get(container.get("id"))
+
     @property
     def native_value(self) -> str:
         """Return 'Yes' if an update is available, otherwise 'No'."""
@@ -283,6 +295,8 @@ class WUDContainerSensor(CoordinatorEntity, SensorEntity):
             "status": container.get("status", "unknown"),
             "compose_project": _get_compose_project(container) or "–",
             "watcher": self._container_watcher,
+            "display_icon": container.get("displayIcon"),
+            "available_triggers": self._get_available_triggers(container),
         }
 
         # Only include date attributes when an update is actually available

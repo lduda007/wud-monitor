@@ -17,6 +17,7 @@ DEFAULT_INSTANCE_NAME = "WUD"
 API_CONTAINERS = "/api/containers"
 API_CONTAINERS_WATCH = "/api/containers/watch"
 API_CONTAINER_WATCH = "/api/containers/{container_id}/watch"
+API_CONTAINER_TRIGGERS = "/api/containers/{container_id}/triggers"
 
 # Device identifiers
 CONTROLLER_DEVICE_SUFFIX = "controller"
