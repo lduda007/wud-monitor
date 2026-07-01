@@ -26,3 +26,7 @@ API_CONTAINER_RUN_TRIGGER = (
 
 # Device identifiers
 CONTROLLER_DEVICE_SUFFIX = "controller"
+
+# Seconds to wait after running a trigger before refreshing state — WUD needs
+# a moment to process the trigger before the container payload reflects it.
+TRIGGER_REFRESH_DELAY = 10

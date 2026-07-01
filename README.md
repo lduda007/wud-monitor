@@ -11,6 +11,8 @@ A Home Assistant integration for [What's Up Docker (WUD)](https://github.com/get
 - **Per-container sensors** — update status, current version, new version, days available
 - **Controller sensors** — total containers monitored, containers with updates, last poll time
 - **Force scan buttons** — trigger WUD to re-check updates for all containers, a specific compose project, or a single container
+- **Per-container trigger buttons** — run any WUD trigger (e.g. `docker.local`) on a container on demand, with a configurable exclusion list
+- **Refresh states button** — re-fetch container data from WUD without triggering an update scan
 - **Compose project grouping** — containers sharing a Docker Compose project are grouped under one HA device
 - **Re-deploy safe** — sensor identity is based on container name and watcher, not the Docker container ID which changes on every redeploy
 - **Configurable polling** — set how often HA polls WUD (default: 15 minutes)
@@ -78,6 +80,7 @@ Go to **Settings → Devices & Services → Add Integration** and search for **W
 | **Port** | WUD web UI port | `3000` |
 | **Instance name** | Friendly name shown as the Controller device in HA | `WUD` |
 | **Poll interval** | How often HA fetches data from WUD (minutes) | `15` |
+| **Triggers excluded** | Trigger identifiers (e.g. `docker.local`) for which no per-container trigger button is created | _(none)_ |
 
 Settings can be changed later via the integration's **Configure** button.
 
@@ -93,6 +96,7 @@ Settings can be changed later via the integration's **Configure** button.
 | Monitored Containers | Sensor | Total number of containers WUD is watching |
 | Last Poll | Sensor | When HA last successfully fetched data from WUD |
 | Force Scan All | Button | Triggers `POST /api/containers/watch` to re-check all containers |
+| Refresh States | Button | Re-fetches current container data (`GET /api/containers`) without asking WUD to watch for new updates |
 
 ### Compose project device (`{instance_name} – {project}`)
 
@@ -102,6 +106,7 @@ One device per Docker Compose project. Linked to the Controller device via `via_
 |---|---|---|
 | {container} Update Available | Sensor | Per-container update status |
 | Force Scan | Button | Scans each container in the project individually |
+| {container} Trigger {type}.{name} | Button | Runs the given WUD trigger on the container via `POST /api/containers/{id}/triggers/{type}/{name}` — one button per available trigger, minus any excluded triggers. State is refreshed ~10s after the trigger runs, since WUD needs a moment to process it |
 
 ### Per-container sensor attributes
 
