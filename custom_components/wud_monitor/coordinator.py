@@ -39,7 +39,7 @@ class WUDCoordinator(DataUpdateCoordinator):
         url = f"{self._base_url}{API_CONTAINERS}"
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as response:
                     if response.status != 200:
                         raise UpdateFailed(f"WUD API returned HTTP {response.status}")
                     data = await response.json()
@@ -80,7 +80,7 @@ class WUDCoordinator(DataUpdateCoordinator):
         """
         url = f"{self._base_url}{API_CONTAINER_TRIGGERS.format(container_id=container_id)}"
         try:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as response:
                 if response.status != 200:
                     _LOGGER.debug(
                         "WUD triggers API returned HTTP %s for container %s",
@@ -101,7 +101,7 @@ class WUDCoordinator(DataUpdateCoordinator):
         url = f"{self._base_url}{API_CONTAINERS_WATCH}"
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                async with session.post(url, timeout=aiohttp.ClientTimeout(total=15)) as response:
                     return response.status in (200, 202, 204)
         except aiohttp.ClientError as err:
             _LOGGER.error("Failed to trigger WUD scan all: %s", err)
@@ -113,7 +113,7 @@ class WUDCoordinator(DataUpdateCoordinator):
         url = f"{self._base_url}{API_CONTAINER_WATCH.format(container_id=container_id)}"
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                async with session.post(url, timeout=aiohttp.ClientTimeout(total=15)) as response:
                     return response.status in (200, 202, 204)
         except aiohttp.ClientError as err:
             _LOGGER.error("Failed to trigger WUD scan for container %s: %s", container_id, err)
