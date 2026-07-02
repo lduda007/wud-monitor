@@ -118,6 +118,8 @@ One device per Docker Compose project. Linked to the Controller device via `via_
 | `available_since` | When the new image was published (UTC) — only shown when update is available |
 | `days_available` | Days since the new version became available — only shown when update is available |
 | `semver_diff` | Severity: `patch`, `minor`, or `major` |
+| `release_notes` | Link to the container's release notes / changelog — only shown when an update is available |
+| `error` | Error message reported by WUD for this container (e.g. registry rate limit) — only shown when WUD reports an error |
 | `image` | Full image name (e.g. `esphome/esphome`) |
 | `registry` | Registry name (e.g. `ghcr.public`, `hub.public`) |
 | `compose_project` | Docker Compose project name |
@@ -135,9 +137,11 @@ A ready-made Lovelace card is provided in [`lovelace/wud-monitor-dashboard.yaml`
 **What it shows**
 
 - Containers grouped by **instance**, then by **watcher**, and inside each group split into **Update Available** (shown expanded) and **Up to date** (collapsed by default in an `expander-card`).
-- Each container shows its current version (`current → new` plus `(Nd ago)` when an update exists). The card's icon is **colour-coded by severity** (`semver_diff`): red = major, amber = patch, orange = minor/unknown, green = up to date. Two icon-only controls per row:
+- Each container shows its current version (`current → new` plus `(Nd ago)` when an update exists). The card's icon is **colour-coded by severity** (`semver_diff`): red = major, amber = patch, orange = minor/unknown, green = up to date. Icon-only controls per row:
   - **Rescan** (magnify-scan) — re-checks that single container for updates (the container's *Force Scan* button).
+  - **Release notes** (note-text-outline) — opens the container's `release_notes` URL in a new tab. Only shown when an update is available.
   - **Update** (tray-arrow-down) — runs the container's WUD trigger, after a confirmation prompt. One Update button per available trigger.
+- Containers WUD reported an `error` for are pulled out of the watcher groups into a collapsible **Errors** section per instance, flagged with a red alert icon; expand it to read each error message.
 - Per-instance controls: **Force Scan All** and **Refresh States**, plus summary chips for *containers with updates*, *monitored containers*, and *last poll*.
 - Tapping a container opens its more-info dialog with all attributes.
 

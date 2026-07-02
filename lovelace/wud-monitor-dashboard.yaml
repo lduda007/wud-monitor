@@ -7,10 +7,15 @@
 # "Update Available" and "Up to date". Each container row shows the current
 # version (-> new version, plus "(Nd ago)" when an update exists). The name
 # card's icon is colour-coded by severity (semver_diff): red=major, amber=patch,
-# orange=minor/unknown, green=up to date. Two icon-only buttons per row:
+# orange=minor/unknown, green=up to date. Icon-only buttons per row:
 #   • magnify-scan  — Rescan: re-checks that container for updates (Force Scan)
+#   • note-text-outline — Release notes: opens the container's release-notes URL
+#                       in a new tab (only shown when an update is available)
 #   • tray-arrow-down — Update: runs the container's WUD trigger (asks to confirm
 #                       first). One Update button per available trigger.
+# Containers WUD reported an error for (e.g. a registry rate limit) are pulled
+# out of the watcher groups into a collapsible "Errors" section per instance,
+# flagged with a red alert icon; expand it to read each error message.
 # Per-instance controls at the top of each section:
 #   • Force Scan All        • Refresh States
 # and summary chips: containers with updates / monitored / last poll.
@@ -53,6 +58,11 @@ filter:
     {% for inst in instances %}
       {% set inst_sensors = sensors | selectattr('attributes.instance_name', 'equalto', inst) | list %}
 
+      {# Containers WUD reported an error for are pulled out into their own
+         section below; the normal watcher groups only show healthy containers. #}
+      {% set err_sensors = inst_sensors | selectattr('attributes.error', 'defined') | list %}
+      {% set normal_sensors = inst_sensors | rejectattr('attributes.error', 'defined') | list %}
+
       {# ---- instance header + controls ---- #}
       {% set updates_here = inst_sensors | selectattr('attributes.update_available', 'equalto', true) | list | count %}
       {% set ns.cards = ns.cards + [{
@@ -93,9 +103,9 @@ filter:
       {% endif %}
 
       {# ---- watcher groups ---- #}
-      {% set watchers = inst_sensors | map(attribute='attributes.watcher') | unique | list | sort %}
+      {% set watchers = normal_sensors | map(attribute='attributes.watcher') | unique | list | sort %}
       {% for w in watchers %}
-        {% set group = inst_sensors | selectattr('attributes.watcher', 'equalto', w) | list %}
+        {% set group = normal_sensors | selectattr('attributes.watcher', 'equalto', w) | list %}
         {% set ns.cards = ns.cards + [{
           "type": "custom:mushroom-title-card",
           "subtitle": "Watcher: " ~ w
@@ -146,6 +156,18 @@ filter:
                 }] %}
               {% endif %}
 
+              {# Release-notes link — only present when an update is available. #}
+              {% set rel = s.attributes.release_notes | default(none) %}
+              {% if rel %}
+                {% set btns.cards = btns.cards + [{
+                  "type": "custom:mushroom-template-card",
+                  "layout": "vertical",
+                  "icon": "mdi:note-text-outline",
+                  "icon_color": "purple",
+                  "tap_action": {"action":"url","url_path": rel}
+                }] %}
+              {% endif %}
+
               {% set trigs = s.attributes.available_triggers or [] %}
               {% for trig in trigs %}
                 {% set upd_btn = states.button | selectattr('name', 'equalto', base ~ ' Trigger ' ~ trig) | map(attribute='entity_id') | list %}
@@ -184,6 +206,33 @@ filter:
           {% endif %}
         {% endfor %}
       {% endfor %}
+
+      {# ---- containers WUD couldn't check (errors) ---- #}
+      {% if err_sensors | count %}
+        {% set egrp = namespace(cards=[]) %}
+        {% for s in err_sensors | sort(attribute='name') %}
+          {% set base = s.name | replace(' Update Available', '') %}
+          {% set disp = base[(inst|length + 1):] if base.startswith(inst ~ ' ') else base %}
+          {# Error text is shown as the (multiline) secondary — revealed when the
+             section is expanded; tapping opens more-info for full detail. #}
+          {% set egrp.cards = egrp.cards + [{
+            "type": "custom:mushroom-template-card",
+            "entity": s.entity_id,
+            "primary": disp,
+            "secondary": s.attributes.error,
+            "icon": "mdi:alert-circle",
+            "icon_color": "red",
+            "multiline_secondary": true,
+            "tap_action": {"action": "more-info"}
+          }] %}
+        {% endfor %}
+        {% set ns.cards = ns.cards + [{
+          "type": "custom:expander-card",
+          "expanded": false,
+          "title": "⚠ Errors (" ~ (err_sensors | count) ~ ")",
+          "cards": egrp.cards
+        }] %}
+      {% endif %}
     {% endfor %}
 
     {% if sensors | count == 0 %}
