@@ -6,7 +6,11 @@
 # groups them by instance and watcher, and inside each group splits them into
 # "Update Available" and "Up to date". Each container row shows the current
 # version (-> new version, plus "(Nd ago)" when an update exists). The name
-# card's icon is colour-coded by severity (semver_diff): red=major, amber=patch,
+# card's icon is the container's WUD display_icon: Material Design Icons (mdi:)
+# render natively; Font Awesome (fa:) and Simple Icons (si:) are fetched as SVGs
+# from the Iconify API (api.iconify.design) and shown as a picture; anything
+# missing/unrecognised falls back to a package icon. Either way the icon is
+# colour-coded by severity (semver_diff): red=major, amber=patch,
 # orange=minor/unknown, green=up to date. Icon-only buttons per row:
 #   • magnify-scan  — Rescan: re-checks that container for updates (Force Scan);
 #                       asks to confirm first
@@ -34,6 +38,10 @@
 #   • card-mod        (thomasloven/lovelace-card-mod)  — OPTIONAL: widens the
 #       error message vs its rescan button (~80/20); without it the error rows
 #       just fall back to a 50/50 split.
+#
+# Note: rows whose WUD display_icon is a Font Awesome (fa:) or Simple Icon (si:)
+# make an outbound request to api.iconify.design to fetch the icon SVG. Rows with
+# a Material Design Icon (mdi:) — WUD's default — need no external request.
 #
 # How to use:
 #   Dashboard -> Edit -> Add Card -> Manual, then paste this file's contents.
@@ -141,13 +149,40 @@ filter:
               {% set ver = (cur ~ " -> " ~ new) if status else cur %}
               {% set ver = (ver ~ " (" ~ days ~ "d ago)") if (status and days is defined) else ver %}
 
+              {# Container icon from WUD's display_icon. HA renders Material Design
+                 Icons (mdi:) natively in the icon slot (theme-aware, colourable);
+                 Font Awesome (fa:) and Simple Icons (si:) aren't native, so they're
+                 rendered as a picture via the Iconify API. Iconify's own prefixes
+                 match WUD's for mdi/fa, so only si -> simple-icons needs remapping.
+                 ?color= tints fa/si to the same severity colour as the mdi glyphs
+                 so the whole list reads as one system. Falls back to a package icon
+                 when display_icon is missing or in an unexpected format. #}
+              {% set di = s.attributes.display_icon %}
+              {% set row_icon = none %}
+              {% set row_pic  = none %}
+              {% if di and ':' in di %}
+                {% set pfx = di.split(':')[0] %}
+                {% set nm  = di.split(':', 1)[1] %}
+                {% if pfx == 'mdi' %}
+                  {% set row_icon = di %}
+                {% else %}
+                  {% set ipfx = 'simple-icons' if pfx == 'si' else pfx %}
+                  {% set icol = 'orange' if name_color == 'amber' else name_color %}
+                  {% set row_pic = 'https://api.iconify.design/' ~ ipfx ~ '/' ~ nm ~ '.svg?color=' ~ icol %}
+                {% endif %}
+              {% endif %}
+              {% if not row_icon and not row_pic %}
+                {% set row_icon = 'mdi:package-up' if status else 'mdi:package-variant-closed' %}
+              {% endif %}
+
               {# Name / version card — gets 50% of the row width. #}
               {% set name_card = {
                 "type": "custom:mushroom-template-card",
                 "entity": s.entity_id,
                 "primary": disp,
                 "secondary": ver,
-                "icon": "mdi:package-up" if status else "mdi:package-variant-closed",
+                "icon": row_icon,
+                "picture": row_pic,
                 "icon_color": name_color,
                 "multiline_secondary": true,
                 "tap_action": {"action": "more-info"}
