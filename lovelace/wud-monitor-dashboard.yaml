@@ -8,14 +8,21 @@
 # version (-> new version, plus "(Nd ago)" when an update exists). The name
 # card's icon is colour-coded by severity (semver_diff): red=major, amber=patch,
 # orange=minor/unknown, green=up to date. Icon-only buttons per row:
-#   • magnify-scan  — Rescan: re-checks that container for updates (Force Scan)
+#   • magnify-scan  — Rescan: re-checks that container for updates (Force Scan);
+#                       asks to confirm first
+
 #   • note-text-outline — Release notes: opens the container's release-notes URL
 #                       in a new tab (only shown when an update is available)
 #   • tray-arrow-down — Update: runs the container's WUD trigger (asks to confirm
 #                       first). One Update button per available trigger.
 # Containers WUD reported an error for (e.g. a registry rate limit) are pulled
 # out of the watcher groups into a collapsible "Errors" section per instance,
-# flagged with a red alert icon; expand it to read each error message.
+# flagged with a red alert icon; expand it to read each error message. Each
+# errored row also gets a magnify-scan button to force a rescan / retry. The
+# Errors section defaults to expanded so it stays visible after the card
+# re-renders (e.g. following a rescan). Collapsible sections also set an
+# expander-card `expand-id`, which persists a manual open/close in the browser's
+# LocalStorage — but only on expander-card versions new enough to support it.
 # Per-instance controls at the top of each section:
 #   • Force Scan All        • Refresh States
 # and summary chips: containers with updates / monitored / last poll.
@@ -24,6 +31,9 @@
 #   • auto-entities   (thomasloven/lovelace-auto-entities)
 #   • Mushroom        (piitaya/lovelace-mushroom)
 #   • expander-card   (Alia5/lovelace-expander-card)  — collapsible "Up to date"
+#   • card-mod        (thomasloven/lovelace-card-mod)  — OPTIONAL: widens the
+#       error message vs its rescan button (~80/20); without it the error rows
+#       just fall back to a 50/50 split.
 #
 # How to use:
 #   Dashboard -> Edit -> Add Card -> Manual, then paste this file's contents.
@@ -152,7 +162,8 @@ filter:
                   "layout": "vertical",
                   "icon": "mdi:magnify-scan",
                   "icon_color": "blue",
-                  "tap_action": {"action":"call-service","service":"button.press","target":{"entity_id": scan_btn[0]}}
+                  "tap_action": {"action":"call-service","service":"button.press","target":{"entity_id": scan_btn[0]},
+                                 "confirmation": {"text": "Rescan " ~ disp ~ "?"}}
                 }] %}
               {% endif %}
 
@@ -196,9 +207,12 @@ filter:
             {% if status %}
               {% set ns.cards = ns.cards + [{"type": "custom:mushroom-title-card", "subtitle": header}] + grp.cards %}
             {% else %}
+              {# expand-id persists the open/closed state in the browser so it
+                 survives the card re-rendering on every poll / button press. #}
               {% set ns.cards = ns.cards + [{
                 "type": "custom:expander-card",
                 "expanded": false,
+                "expand-id": "wud-uptodate-" ~ inst ~ "-" ~ w,
                 "title": header,
                 "cards": grp.cards
               }] %}
@@ -213,9 +227,10 @@ filter:
         {% for s in err_sensors | sort(attribute='name') %}
           {% set base = s.name | replace(' Update Available', '') %}
           {% set disp = base[(inst|length + 1):] if base.startswith(inst ~ ' ') else base %}
+          {% set scan_btn = states.button | selectattr('name', 'equalto', base ~ ' Force Scan') | map(attribute='entity_id') | list %}
           {# Error text is shown as the (multiline) secondary — revealed when the
              section is expanded; tapping opens more-info for full detail. #}
-          {% set egrp.cards = egrp.cards + [{
+          {% set err_card = {
             "type": "custom:mushroom-template-card",
             "entity": s.entity_id,
             "primary": disp,
@@ -224,11 +239,37 @@ filter:
             "icon_color": "red",
             "multiline_secondary": true,
             "tap_action": {"action": "more-info"}
-          }] %}
+          } %}
+          {# A Force Scan (rescan) button lets you retry a failed container. #}
+          {% if scan_btn | count %}
+            {% set scan_card = {
+              "type": "custom:mushroom-template-card",
+              "layout": "vertical",
+              "icon": "mdi:magnify-scan",
+              "icon_color": "blue",
+              "tap_action": {"action":"call-service","service":"button.press","target":{"entity_id": scan_btn[0]},
+                             "confirmation": {"text": "Rescan " ~ disp ~ "?"}}
+            } %}
+            {# card_mod turns the 50/50 stack into an ~80/20 grid so the error
+               message gets most of the width. If card_mod isn't installed the
+               key is ignored and the row simply falls back to 50/50. #}
+            {% set egrp.cards = egrp.cards + [{
+              "type": "horizontal-stack",
+              "cards": [err_card, scan_card],
+              "card_mod": {"style": "#root { display: grid !important; grid-template-columns: 4fr 1fr !important; }"}
+            }] %}
+          {% else %}
+            {% set egrp.cards = egrp.cards + [err_card] %}
+          {% endif %}
         {% endfor %}
+        {# Errors default to expanded so a card re-render (e.g. after a rescan)
+           re-opens the section instead of collapsing it — errors matter enough
+           to stay visible. expand-id additionally persists a manual collapse,
+           but only on expander-card versions new enough to support it. #}
         {% set ns.cards = ns.cards + [{
           "type": "custom:expander-card",
-          "expanded": false,
+          "expanded": true,
+          "expand-id": "wud-errors-" ~ inst,
           "title": "⚠ Errors (" ~ (err_sensors | count) ~ ")",
           "cards": egrp.cards
         }] %}

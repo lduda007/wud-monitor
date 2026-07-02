@@ -136,20 +136,21 @@ A ready-made Lovelace card is provided in [`lovelace/wud-monitor-dashboard.yaml`
 
 **What it shows**
 
-- Containers grouped by **instance**, then by **watcher**, and inside each group split into **Update Available** (shown expanded) and **Up to date** (collapsed by default in an `expander-card`).
+- Containers grouped by **instance**, then by **watcher**, and inside each group split into **Update Available** (shown expanded) and **Up to date** (collapsed by default in an `expander-card`). The collapsible sections set an `expand-id`, so their open/closed state is remembered per browser across the card re-rendering after a poll or button press — this requires a recent `expander-card` version; older versions ignore it and reset to their default on each render.
 - Each container shows its current version (`current → new` plus `(Nd ago)` when an update exists). The card's icon is **colour-coded by severity** (`semver_diff`): red = major, amber = patch, orange = minor/unknown, green = up to date. Icon-only controls per row:
-  - **Rescan** (magnify-scan) — re-checks that single container for updates (the container's *Force Scan* button).
+  - **Rescan** (magnify-scan) — re-checks that single container for updates (the container's *Force Scan* button), after a confirmation prompt.
   - **Release notes** (note-text-outline) — opens the container's `release_notes` URL in a new tab. Only shown when an update is available.
   - **Update** (tray-arrow-down) — runs the container's WUD trigger, after a confirmation prompt. One Update button per available trigger.
-- Containers WUD reported an `error` for are pulled out of the watcher groups into a collapsible **Errors** section per instance, flagged with a red alert icon; expand it to read each error message.
+- Containers WUD reported an `error` for are pulled out of the watcher groups into a collapsible **Errors** section per instance, flagged with a red alert icon; it defaults to expanded (so it stays visible after the card re-renders following a rescan) and shows each error message. Each errored row also has a **Rescan** (magnify-scan) button to retry the container's *Force Scan*.
 - Per-instance controls: **Force Scan All** and **Refresh States**, plus summary chips for *containers with updates*, *monitored containers*, and *last poll*.
 - Tapping a container opens its more-info dialog with all attributes.
 
-**Requirements** — install both from HACS → **Frontend**:
+**Requirements** — install from HACS → **Frontend**:
 
 - [auto-entities](https://github.com/thomasloven/lovelace-auto-entities) (`thomasloven/lovelace-auto-entities`)
 - [Mushroom](https://github.com/piitaya/lovelace-mushroom) (`piitaya/lovelace-mushroom`)
 - [expander-card](https://github.com/Alia5/lovelace-expander-card) (`Alia5/lovelace-expander-card`) — for the collapsible "Up to date" section
+- [card-mod](https://github.com/thomasloven/lovelace-card-mod) (`thomasloven/lovelace-card-mod`) — *optional*; widens the error message (~80%) vs its rescan button in the Errors section. Without it, those rows fall back to a 50/50 split.
 
 **Install the card**
 
