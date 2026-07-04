@@ -1,4 +1,9 @@
 # Changelog
+## 1.2.1
+
+### Changed
+
+- **Default poll interval** changed from 15 minutes to 1 hour.
 
 ## 1.2.0
 
