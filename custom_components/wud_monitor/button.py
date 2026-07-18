@@ -9,14 +9,17 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     CONF_ADD_INSTANCE_NAME,
     CONF_INSTANCE_NAME,
+    CONF_TRIGGER_REFRESH_DELAY,
     CONF_TRIGGERS_EXCLUDED,
     CONTROLLER_DEVICE_SUFFIX,
     DEFAULT_ADD_INSTANCE_NAME,
+    DEFAULT_TRIGGER_REFRESH_DELAY,
     DOMAIN,
 )
 from .coordinator import WUDCoordinator
@@ -28,6 +31,38 @@ from .sensor import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class WUDActionButton(CoordinatorEntity, ButtonEntity):
+    """Base for buttons that ask WUD to do something and then refresh state.
+
+    Subclasses set ``self._entry`` and call ``_async_refresh_after_action``
+    once the action has succeeded. The refresh timing is user-configurable via
+    ``CONF_TRIGGER_REFRESH_DELAY``:
+
+    - ``-1``: auto refresh is disabled — do nothing.
+    - ``0`` (default): refresh immediately.
+    - ``> 0``: refresh after that many seconds (WUD may still be processing).
+    """
+
+    _entry: ConfigEntry
+
+    async def _async_refresh_after_action(self) -> None:
+        """Refresh coordinator state, honoring the configured refresh delay."""
+        delay = self._entry.data.get(
+            CONF_TRIGGER_REFRESH_DELAY, DEFAULT_TRIGGER_REFRESH_DELAY
+        )
+        if delay < 0:
+            # Auto refresh disabled; the user can refresh manually.
+            return
+        if delay == 0:
+            await self.coordinator.async_request_refresh()
+            return
+
+        async def _refresh(_now) -> None:
+            await self.coordinator.async_request_refresh()
+
+        async_call_later(self.hass, delay, _refresh)
 
 
 async def async_setup_entry(
@@ -101,7 +136,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class WUDScanAllButton(CoordinatorEntity, ButtonEntity):
+class WUDScanAllButton(WUDActionButton):
     """Button that triggers a scan of all WUD-monitored containers."""
 
     def __init__(
@@ -124,7 +159,7 @@ class WUDScanAllButton(CoordinatorEntity, ButtonEntity):
         if success:
             _LOGGER.debug("WUD scan all triggered successfully")
             # Refresh coordinator data after triggering scan
-            await self.coordinator.async_request_refresh()
+            await self._async_refresh_after_action()
         else:
             _LOGGER.error("WUD scan all failed")
 
@@ -156,7 +191,7 @@ class WUDRefreshButton(CoordinatorEntity, ButtonEntity):
         await self.coordinator.async_request_refresh()
 
 
-class WUDProjectScanButton(CoordinatorEntity, ButtonEntity):
+class WUDProjectScanButton(WUDActionButton):
     """Button that triggers a scan for all containers in a compose project."""
 
     def __init__(
@@ -186,10 +221,10 @@ class WUDProjectScanButton(CoordinatorEntity, ButtonEntity):
         _LOGGER.debug("Triggering WUD scan for project '%s' (%d containers)", self._project, len(self._container_ids))
         for container_id in self._container_ids:
             await self.coordinator.async_trigger_scan_container(container_id)
-        await self.coordinator.async_request_refresh()
+        await self._async_refresh_after_action()
 
 
-class WUDContainerScanButton(CoordinatorEntity, ButtonEntity):
+class WUDContainerScanButton(WUDActionButton):
     """Button that triggers a scan for a single container."""
 
     def __init__(
@@ -234,12 +269,12 @@ class WUDContainerScanButton(CoordinatorEntity, ButtonEntity):
         success = await self.coordinator.async_trigger_scan_container(container_id)
         if success:
             _LOGGER.debug("WUD scan triggered for container '%s'", self._container_name)
-            await self.coordinator.async_request_refresh()
+            await self._async_refresh_after_action()
         else:
             _LOGGER.error("WUD scan failed for container '%s'", self._container_name)
 
 
-class WUDContainerTriggerButton(CoordinatorEntity, ButtonEntity):
+class WUDContainerTriggerButton(WUDActionButton):
     """Button that runs a specific WUD trigger on a single container."""
 
     def __init__(
@@ -305,6 +340,7 @@ class WUDContainerTriggerButton(CoordinatorEntity, ButtonEntity):
                 self._container_name,
             )
 
-        # The trigger POST has returned, so WUD has already processed it;
-        # refresh immediately to pick up the updated state.
-        await self.coordinator.async_request_refresh()
+        # The trigger POST has returned, so WUD has already processed it.
+        # Refresh state according to the configured delay (immediate by default,
+        # or after a delay to give WUD time to finish recreating the container).
+        await self._async_refresh_after_action()

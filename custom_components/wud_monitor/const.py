@@ -9,6 +9,7 @@ CONF_INSTANCE_NAME = "instance_name"
 CONF_POLL_INTERVAL = "poll_interval"
 CONF_TRIGGERS_EXCLUDED = "triggers_excluded"
 CONF_ADD_INSTANCE_NAME = "add_instance_name"
+CONF_TRIGGER_REFRESH_DELAY = "trigger_refresh_delay"
 
 # Defaults
 DEFAULT_PORT = 3000
@@ -16,6 +17,9 @@ DEFAULT_POLL_INTERVAL = 60  # minutes
 DEFAULT_INSTANCE_NAME = "WUD"
 DEFAULT_TRIGGERS_EXCLUDED: list[str] = []
 DEFAULT_ADD_INSTANCE_NAME = False
+# Seconds to wait after a successful trigger/scan before refreshing state.
+# 0 = refresh immediately (default); -1 = disable auto refresh.
+DEFAULT_TRIGGER_REFRESH_DELAY = 0
 
 # API endpoints
 API_CONTAINERS = "/api/containers"

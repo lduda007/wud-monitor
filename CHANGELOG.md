@@ -1,4 +1,10 @@
 # Changelog
+## 1.3.0
+
+### Added
+
+- **Configurable refresh delay after triggers** — a new **Refresh delay after trigger (seconds)** setting controls when container states are refreshed after a successful scan or trigger. `0` refreshes immediately (default), a positive value waits that many seconds (useful when WUD needs time to finish recreating a container), and `-1` disables the automatic refresh entirely.
+
 ## 1.2.1
 
 ### Changed

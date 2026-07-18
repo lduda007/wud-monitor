@@ -84,6 +84,7 @@ Go to **Settings → Devices & Services → Add Integration** and search for **W
 | **Port** | WUD web UI port | `3000` |
 | **Instance name** | Friendly name shown as the Controller device in HA | `WUD` |
 | **Poll interval** | How often HA fetches data from WUD (minutes) | `15` |
+| **Refresh delay after trigger** | Seconds to wait after a successful scan/trigger before refreshing container states. `0` = refresh immediately; `-1` = disable auto refresh | `0` |
 | **Triggers excluded** | Trigger identifiers (e.g. `docker.local`) for which no per-container trigger button is created | _(none)_ |
 | **Add instance name to sensors** | Prefix per-container sensor and button names with the instance name, so entities can be told apart when multiple WUD instances are configured | `off` |
 
@@ -111,7 +112,7 @@ One device per Docker Compose project. Linked to the Controller device via `via_
 |---|---|---|
 | {container} Update Available | Sensor | Per-container update status |
 | Force Scan | Button | Scans each container in the project individually |
-| {container} Trigger {type}.{name} | Button | Runs the given WUD trigger on the container via `POST /api/containers/{id}/triggers/{type}/{name}` — one button per available trigger, minus any excluded triggers. State is refreshed immediately once the trigger request returns |
+| {container} Trigger {type}.{name} | Button | Runs the given WUD trigger on the container via `POST /api/containers/{id}/triggers/{type}/{name}` — one button per available trigger, minus any excluded triggers. State is refreshed once the trigger request returns, according to the **Refresh delay after trigger** setting |
 
 ### Per-container sensor attributes
 
@@ -203,4 +204,4 @@ This project is based on the original WUD Monitor integration by [**@johro897**]
 - **Richer sensor attributes** (icon, available triggers, release notes, error messages)
 - **Multi-instance ergonomics** (optional instance-name prefixing on entities)
 - A ready-made **Lovelace dashboard card**
-- More accurate **version detection** and **immediate state refresh** after triggers
+- More accurate **version detection** and **configurable state refresh** after triggers

@@ -112,14 +112,16 @@ filter:
       {% set refresh_btn    = states.button | selectattr('name', 'equalto', 'WUD @ ' ~ inst ~ ' Refresh States') | map(attribute='entity_id') | list %}
 
       {% set summary = namespace(cards=[]) %}
+      {# Last Poll gets its own full-width row: cramming it into the 3-up stack
+         above truncated the timestamp to "date + hour …" (minutes elided). #}
+      {% if poll_sensor | count %}
+        {% set ns.cards = ns.cards + [{"type":"custom:mushroom-entity-card","entity":poll_sensor[0],"name":"Last poll","icon":"mdi:clock-outline","icon_color":"grey"}] %}
+      {% endif %}
       {% if updates_sensor | count %}
         {% set summary.cards = summary.cards + [{"type":"custom:mushroom-entity-card","entity":updates_sensor[0],"name":"Updates","icon":"mdi:package-up","icon_color":"orange"}] %}
       {% endif %}
       {% if total_sensor | count %}
         {% set summary.cards = summary.cards + [{"type":"custom:mushroom-entity-card","entity":total_sensor[0],"name":"Monitored","icon":"mdi:docker","icon_color":"blue"}] %}
-      {% endif %}
-      {% if poll_sensor | count %}
-        {% set summary.cards = summary.cards + [{"type":"custom:mushroom-entity-card","entity":poll_sensor[0],"name":"Last poll","icon":"mdi:clock-outline","icon_color":"grey"}] %}
       {% endif %}
       {% if summary.cards | count %}
         {% set ns.cards = ns.cards + [{"type":"horizontal-stack","cards": summary.cards}] %}

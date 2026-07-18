@@ -18,11 +18,13 @@ from .const import (
     CONF_INSTANCE_NAME,
     CONF_POLL_INTERVAL,
     CONF_PORT,
+    CONF_TRIGGER_REFRESH_DELAY,
     CONF_TRIGGERS_EXCLUDED,
     DEFAULT_ADD_INSTANCE_NAME,
     DEFAULT_INSTANCE_NAME,
     DEFAULT_POLL_INTERVAL,
     DEFAULT_PORT,
+    DEFAULT_TRIGGER_REFRESH_DELAY,
     DEFAULT_TRIGGERS_EXCLUDED,
     DOMAIN,
 )
@@ -50,6 +52,12 @@ def _build_schema(defaults: dict, trigger_options: list[str] | None = None) -> v
             vol.Required(
                 CONF_POLL_INTERVAL, default=defaults.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
             ): vol.All(int, vol.Range(min=1, max=1440)),
+            vol.Required(
+                CONF_TRIGGER_REFRESH_DELAY,
+                default=defaults.get(
+                    CONF_TRIGGER_REFRESH_DELAY, DEFAULT_TRIGGER_REFRESH_DELAY
+                ),
+            ): vol.All(int, vol.Range(min=-1, max=3600)),
             vol.Optional(
                 CONF_TRIGGERS_EXCLUDED,
                 default=defaults.get(CONF_TRIGGERS_EXCLUDED, DEFAULT_TRIGGERS_EXCLUDED),
